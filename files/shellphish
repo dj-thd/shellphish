@@ -45,6 +45,10 @@ fi
 
 # Main loop
 while true; do
+
+    # Simulate delay
+    sleep 2
+
     echo Permission denied, please try again.
 
     echo -ne "${USERNAME}@${HOSTNAME}'s password: "
@@ -65,9 +69,6 @@ while true; do
     if [ "$ORIGPASS" == "$GENPASS" ]; then
         break
     fi
-
-    # Simulate delay
-    sleep 1
 
 done
 
