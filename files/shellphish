@@ -85,8 +85,8 @@ unset CLIENT_NET
 
 # Print MOTD and last login
 # TODO: check if no MOTD or dynamid MOTD
-cat /etc/motd
 echo "Last login: $(lastlog --user $USERNAME | cut -b44- | cut -b1-19 | tail -n1) $(lastlog --user $USERNAME | cut -b44- | cut -b27-30 | tail -n1) from: $(lastlog --user $USERNAME | cut -b27-43 | tail -n1)"
+cat /etc/motd
 unset USERNAME
 
 # Execute original shell
